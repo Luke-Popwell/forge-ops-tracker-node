@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.1 (2026-10-22)
+
+- The README says what strict privacy does in its opening lines.
+- The source is public at https://github.com/Luke-Popwell/forge-ops-tracker-node, and the package links to it.
+
 ## 0.20.0 (2026-10-20)
 
 - Strict privacy's path rule changed. A route template (`/patients/:id/notes`, `/patients/{id}`,
