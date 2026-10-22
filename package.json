@@ -1,0 +1,62 @@
+{
+  "name": "@forge-ops/tracker",
+  "version": "0.20.0",
+  "description": "ForgeOps error tracking client: captures unhandled exceptions (Express/Fastify integration, plus explicit capture anywhere else) and delivers them to ForgeOps over HTTP.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./integrations/express": "./src/integrations/express.js",
+    "./integrations/fastify": "./src/integrations/fastify.js",
+    "./integrations/session-tracking": "./src/integrations/sessionTracking.js",
+    "./integrations/performance": "./src/integrations/performance.js",
+    "./integrations/breadcrumb-context": "./src/integrations/breadcrumbContext.js",
+    "./integrations/tracing": "./src/integrations/tracing.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "author": "ForgeOps",
+  "homepage": "https://getforgeops.net",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Luke-Popwell/forge-ops-tracker-node.git"
+  },
+  "files": [
+    "src",
+    "LICENSE.txt"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint src test"
+  },
+  "peerDependencies": {
+    "express": ">=5",
+    "fastify": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "express": "^5.0.0",
+    "fastify": "^5.0.0",
+    "ioredis": "^6.0.0",
+    "pg": "^8.23.0",
+    "redis": "^6.2.1",
+    "redis4": "npm:redis@^4.7.1",
+    "redis4-0": "npm:redis@4.0.6",
+    "redis5-0": "npm:redis@5.0.1",
+    "redis5-11": "npm:redis@5.11.0"
+  }
+}
