@@ -11,13 +11,18 @@ import { createHash } from "node:crypto";
  * both have to agree on.
  *
  * Errors still group without their message: message_fingerprint is a one-way hash of the message
- * with its numbers and ids taken out, computed here, in this process.
+ * with its numbers, ids, emails and quoted values taken out, computed here, in this process.
  */
 
 export const FINGERPRINT_LENGTH = 32;
 
 // ASCII "word" characters only, spelled out rather than \w so no engine's own idea of a word
 // changes the result: the same in every SDK and on the server.
+const EMAIL = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+// A quoted value (KeyError: 'Jane Doe') is data, not the shape of the error. Single quotes only open
+// and close at a word boundary, so a contraction (Couldn't) or the `email' style never starts one.
+const DOUBLE_QUOTED = /"[^"\r\n]*"/g;
+const SINGLE_QUOTED = /(?<![A-Za-z0-9_])'[^'\r\n]*'(?![A-Za-z0-9_])/g;
 const HEX_OBJECT_ID = /0x[0-9a-fA-F]{4,}/g;
 const UUID = /(?<![A-Za-z0-9_])[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?![A-Za-z0-9_])/g;
 const NUMBER = /(?<![A-Za-z0-9_])[0-9]+(?![A-Za-z0-9_])/g;
@@ -36,12 +41,16 @@ const SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
 const PORT = /:[0-9]+$/;
 
 /**
- * The message with hex object ids, UUIDs and standalone numbers replaced, in that order.
+ * The message with emails, quoted values, hex object ids, UUIDs and standalone numbers replaced, in
+ * that order.
  * @param {unknown} message
  * @returns {string}
  */
 export function normalizeMessage(message) {
   return String(message ?? "")
+    .replace(EMAIL, "<email>")
+    .replace(DOUBLE_QUOTED, "<str>")
+    .replace(SINGLE_QUOTED, "<str>")
     .replace(HEX_OBJECT_ID, "0x")
     .replace(UUID, "<uuid>")
     .replace(NUMBER, "<n>");
