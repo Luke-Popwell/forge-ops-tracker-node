@@ -1,6 +1,26 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { test } from "node:test";
-import { scrub, scrubString } from "../src/piiScrubber.js";
+import { REDACTED, scrub, scrubString } from "../src/piiScrubber.js";
+
+// A byte-identical copy of sdks/pii_scrubbing_vectors.json, generated from the server's own
+// app/services/pii_scrubber.rb: card numbers, IBANs and bank-detail keys, as sdks/PII_SCRUBBING.md
+// describes them.
+const fixtureUrl = new URL("./fixtures/pii_scrubbing_vectors.json", import.meta.url);
+const vectors = JSON.parse(fs.readFileSync(fixtureUrl, "utf8"));
+
+for (const vector of vectors.strings) {
+  test(`scrubs ${JSON.stringify(vector.input)} exactly as the server does`, () => {
+    assert.equal(scrub(vector.input), vector.scrubbed);
+  });
+}
+
+for (const vector of vectors.keys) {
+  test(`${vector.redacted ? "redacts" : "keeps"} a value under ${JSON.stringify(vector.key)}, as the server does`, () => {
+    const scrubbed = /** @type {Record<string, unknown>} */ (scrub({ [vector.key]: "x" }));
+    assert.equal(scrubbed[vector.key] === REDACTED, vector.redacted);
+  });
+}
 
 test("redacts an email address embedded in free text", () => {
   assert.equal(

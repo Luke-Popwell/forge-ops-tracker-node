@@ -1,6 +1,6 @@
 {
   "name": "@forge-ops/tracker",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "description": "ForgeOps error tracking client: captures unhandled exceptions (Express/Fastify integration, plus explicit capture anywhere else) and delivers them to ForgeOps over HTTP.",
   "type": "module",
   "main": "src/index.js",
