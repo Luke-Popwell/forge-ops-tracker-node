@@ -1,5 +1,5 @@
 import os from "node:os";
-import { envFlag, envList } from "./strictPrivacy.js";
+import { envFlag, envKey, envList } from "./strictPrivacy.js";
 
 /**
  * Holds a single ForgeOps DSN plus everything else the client needs to
@@ -62,11 +62,12 @@ export class Configuration {
    * Strict privacy, for apps that can't let personal or health data leave this process: every
    * error event goes out without its message (a message_fingerprint instead, so errors still
    * group), breadcrumbs, endpoint, SQL statement, source context, or the user's email/username,
-   * and with only the context/tag keys named in privacyAllowedFields. Outbound HTTP spans are named
-   * by method and host only, and span data keeps only db.statement and db.system. See
-   * strictPrivacy.js. Off by default; FORGE_OPS_STRICT_PRIVACY=true turns it on, and a value passed
-   * to init() wins over the environment. ForgeOps applies the same rules again on arrival when
-   * the project's own Strict privacy setting is on.
+   * with the user's id only as a keyed hash (privacyUserKey), and with only the context/tag keys
+   * named in privacyAllowedFields. Outbound HTTP spans are named by method and host only, and span
+   * data keeps only db.statement and db.system. See strictPrivacy.js. Off by default;
+   * FORGE_OPS_STRICT_PRIVACY=true turns it on, and a value passed to init() wins over the
+   * environment. ForgeOps applies the same rules again on arrival when the project's own Strict
+   * privacy setting is on.
    * @type {boolean}
    */
   strictPrivacy = envFlag(process.env.FORGE_OPS_STRICT_PRIVACY);
@@ -78,6 +79,15 @@ export class Configuration {
    * @type {string[]}
    */
   privacyAllowedFields = envList(process.env.FORGE_OPS_PRIVACY_ALLOWED_FIELDS);
+
+  /**
+   * Strict privacy sends the user's id only as a keyed hash (HMAC-SHA256) with this secret, which
+   * stays in your app; unset, no user is sent at all. Keep it the same across deploys and servers,
+   * or the same customer counts as two. Defaults to FORGE_OPS_PRIVACY_USER_KEY; an empty value
+   * counts as unset.
+   * @type {string | null}
+   */
+  privacyUserKey = envKey(process.env.FORGE_OPS_PRIVACY_USER_KEY);
 
   /** @type {((message: string) => void) | null} */
   logger = null;

@@ -5,7 +5,7 @@ import { Configuration } from "../src/configuration.js";
 import { EventBuilder } from "../src/eventBuilder.js";
 import * as forgeOpsTracker from "../src/index.js";
 import { PerformanceFlusher } from "../src/performanceFlusher.js";
-import { messageFingerprint, normalizeMessage, strictPath, span, spanName } from "../src/strictPrivacy.js";
+import { hashedUserId, messageFingerprint, normalizeMessage, strictPath, span, spanName } from "../src/strictPrivacy.js";
 
 // A byte-identical copy of sdks/strict_privacy_vectors.json, generated from the server's own
 // app/services/strict_privacy.rb: the results every SDK and the server have to agree on.
@@ -21,6 +21,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   delete process.env.FORGE_OPS_STRICT_PRIVACY;
   delete process.env.FORGE_OPS_PRIVACY_ALLOWED_FIELDS;
+  delete process.env.FORGE_OPS_PRIVACY_USER_KEY;
   forgeOpsTracker._resetForTesting();
 });
 
@@ -46,6 +47,16 @@ for (const vector of vectors.span_name) {
     assert.equal(spanName(vector.name), vector.strict);
   });
 }
+
+for (const vector of vectors.user_id) {
+  test(`user_id vector ${JSON.stringify(vector.id)} under ${JSON.stringify(vector.key)}`, () => {
+    assert.equal(hashedUserId(vector.id, vector.key), vector.hashed);
+  });
+}
+
+test("an integer user id hashes as its text", () => {
+  assert.equal(hashedUserId(42, "customer-secret"), "h1:316d4a35bc95112698f59ef5aac5c29a");
+});
 
 function newConfiguration() {
   const config = new Configuration();
@@ -90,7 +101,7 @@ test("an event built with strict privacy on keeps only structured facts", () => 
   assert.deepEqual(payload.sql_objects.relations, ["patients"]);
   assert.deepEqual(payload.context, { error_code: "E42" });
   assert.equal("tags" in payload, false);
-  assert.deepEqual(payload.user, { id: "7" });
+  assert.equal("user" in payload, false);
   assert.equal(payload.transaction_name, "GET /patients/:id");
   assert.equal(payload.trace_id, "a".repeat(32));
   assert.equal(payload.exception_class, "Error");
@@ -102,6 +113,36 @@ test("an event built with strict privacy on keeps only structured facts", () => 
     assert.equal("post_context" in frame, false);
   }
   assert.doesNotMatch(JSON.stringify(payload), /jane|flu|8821/);
+});
+
+test("with strict privacy on and a user key set, the user is only the keyed hash of its id", () => {
+  const config = newConfiguration();
+  config.strictPrivacy = true;
+  config.privacyUserKey = "customer-secret";
+
+  const payload = build(config);
+
+  assert.deepEqual(payload.user, { id: hashedUserId("7", "customer-secret") });
+  assert.match(payload.user.id, /^h1:[0-9a-f]{32}$/);
+  assert.doesNotMatch(JSON.stringify(payload), /jane/);
+});
+
+test("with strict privacy on and an empty user key, no user is sent", () => {
+  const config = newConfiguration();
+  config.strictPrivacy = true;
+  config.privacyUserKey = "";
+
+  assert.equal("user" in build(config), false);
+});
+
+test("with strict privacy on and a user key, a user with a blank id is left out", () => {
+  const config = newConfiguration();
+  config.strictPrivacy = true;
+  config.privacyUserKey = "customer-secret";
+
+  const payload = new EventBuilder(config).build(new Error("boom"), {}, { id: "  ", email: "jane@example.com" });
+
+  assert.equal("user" in payload, false);
 });
 
 test("the fingerprint is taken from the message as it would have been sent: scrubbed only when scrubPii is on", () => {
@@ -118,6 +159,7 @@ test("the fingerprint is taken from the message as it would have been sent: scru
 test("strict privacy leaves context and user out entirely when nothing is allowed or there's no id", () => {
   const config = newConfiguration();
   config.strictPrivacy = true;
+  config.privacyUserKey = "customer-secret";
 
   const payload = new EventBuilder(config).build(new Error("boom"), { error_code: "E42" }, { email: "jane@example.com" });
 
@@ -170,11 +212,28 @@ test("strictPrivacy and privacyAllowedFields default from the environment", () =
   assert.deepEqual(config.privacyAllowedFields, ["error_code", "feature"]);
 });
 
+test("privacyUserKey defaults from FORGE_OPS_PRIVACY_USER_KEY, and an empty value counts as unset", () => {
+  process.env.FORGE_OPS_PRIVACY_USER_KEY = "customer-secret";
+  assert.equal(new Configuration().privacyUserKey, "customer-secret");
+
+  process.env.FORGE_OPS_PRIVACY_USER_KEY = "";
+  assert.equal(new Configuration().privacyUserKey, null);
+});
+
+test("a privacyUserKey passed to init() wins over the environment", () => {
+  process.env.FORGE_OPS_PRIVACY_USER_KEY = "from-env";
+
+  const config = forgeOpsTracker.init({ privacyUserKey: "from-code", installProcessHandlers: false });
+
+  assert.equal(config.privacyUserKey, "from-code");
+});
+
 test("both are off and empty by default", () => {
   const config = new Configuration();
 
   assert.equal(config.strictPrivacy, false);
   assert.deepEqual(config.privacyAllowedFields, []);
+  assert.equal(config.privacyUserKey, null);
 });
 
 test("an option passed to init() wins over the environment", () => {

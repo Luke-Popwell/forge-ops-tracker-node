@@ -95,7 +95,7 @@ export class EventBuilder {
     // is on), so it matches what the server fingerprints from a client without strict privacy, and
     // a message holding an email still groups as one.
     const fingerprint = strictPrivacy.messageFingerprint(finished.message);
-    return strictPrivacy.event(finished, fingerprint, this.#configuration.privacyAllowedFields);
+    return strictPrivacy.event(finished, fingerprint, this.#configuration.privacyAllowedFields, this.#configuration.privacyUserKey);
   }
 
   // exception_class/occurred_at/environment/release/server_name/user/

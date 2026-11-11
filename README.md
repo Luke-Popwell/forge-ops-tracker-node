@@ -327,6 +327,7 @@ forgeOpsTracker.init({
   dsn: "...",
   strictPrivacy: true,
   privacyAllowedFields: ["error_code", "feature"],
+  privacyUserKey: process.env.MY_FORGE_OPS_USER_KEY, // default unset: no user sent
 });
 ```
 
@@ -335,7 +336,11 @@ forgeOpsTracker.init({
   errors still group the same way.
 - No breadcrumbs (they aren't recorded either), no `endpoint`, no SQL statement (even with
   `captureSqlStatement` on; the table and procedure names are still sent), and no source context.
-- The user is sent as its `id` only, never `email` or `username`.
+- The user's `email` and `username` are never sent, and neither is the raw `id`. With
+  `privacyUserKey` set, the id is sent as a keyed hash (HMAC-SHA256 with your key, which never
+  leaves your app), so ForgeOps can still count affected customers but can't read the id. Without
+  a key, no user is sent at all. Keep the key the same across servers and deploys, or one customer
+  counts as two.
 - Context and tags keep only the top-level keys listed in `privacyAllowedFields`, and only when the
   value is a string, number or boolean. With none listed, neither is sent.
 - Traces: an outbound HTTP span is named by its method and host (`GET api.example.com`), a request
@@ -350,9 +355,9 @@ forgeOpsTracker.init({
 The exception class, backtrace frames (file, line, function), release, environment, server and
 trace id are unchanged, as are session counts, performance timings, metrics and change snapshots.
 
-Both options can also come from the environment: `FORGE_OPS_STRICT_PRIVACY=true` and
-`FORGE_OPS_PRIVACY_ALLOWED_FIELDS=error_code,feature` (comma separated). A value passed to `init()`
-wins over the environment.
+All three options can also come from the environment: `FORGE_OPS_STRICT_PRIVACY=true`,
+`FORGE_OPS_PRIVACY_ALLOWED_FIELDS=error_code,feature` (comma separated) and
+`FORGE_OPS_PRIVACY_USER_KEY=...`. A value passed to `init()` wins over the environment.
 
 ForgeOps applies the same rules again on arrival when the project's own Strict privacy setting is
 on, so an app running an older client, or one configured without this, still can't get text stored

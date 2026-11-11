@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 /**
  * Strict privacy (Configuration#strictPrivacy): for apps that can't let personal or health data
@@ -72,9 +72,10 @@ export function messageFingerprint(message) {
  * @param {Record<string, unknown>} payload
  * @param {string} fingerprint
  * @param {string[]} allowedFields
+ * @param {string | null} [userKey] Configuration#privacyUserKey: without one, no user is sent.
  * @returns {Record<string, unknown>}
  */
-export function event(payload, fingerprint, allowedFields) {
+export function event(payload, fingerprint, allowedFields, userKey = null) {
   const { context, tags, user, backtrace } = payload;
   const result = { ...payload, message_fingerprint: fingerprint };
   if (typeof payload.transaction_name === "string" && payload.transaction_name !== "") {
@@ -98,11 +99,25 @@ export function event(payload, fingerprint, allowedFields) {
   if (allowedTags) {
     result.tags = allowedTags;
   }
+  // Only a keyed hash of the id, and only with a key: a raw id can be a record number that
+  // identifies a person, and an unkeyed hash of a small number can be guessed back.
   const userId = user?.id;
-  if (userId !== undefined && userId !== null && userId !== false && String(userId).trim() !== "") {
-    result.user = { id: String(userId) };
+  if (userKey && userId !== undefined && userId !== null && userId !== false && String(userId).trim() !== "") {
+    result.user = { id: hashedUserId(userId, userKey) };
   }
   return result;
+}
+
+/**
+ * "h1:" and the first 32 lowercase hex characters of HMAC-SHA256 of the id's UTF-8 text, keyed with
+ * the app's own secret (Configuration#privacyUserKey), which ForgeOps never sees. The same id hashes
+ * the same under one key, so affected customers can still be counted.
+ * @param {unknown} id
+ * @param {string} key
+ * @returns {string}
+ */
+export function hashedUserId(id, key) {
+  return `h1:${createHmac("sha256", String(key)).update(String(id), "utf8").digest("hex").slice(0, FINGERPRINT_LENGTH)}`;
 }
 
 /**
@@ -224,4 +239,13 @@ export function envList(value) {
     .split(",")
     .map((name) => name.trim())
     .filter((name) => name !== "");
+}
+
+/**
+ * FORGE_OPS_PRIVACY_USER_KEY's value, or null when it's unset or empty.
+ * @param {string | undefined} value
+ * @returns {string | null}
+ */
+export function envKey(value) {
+  return value === undefined || value === null || value === "" ? null : String(value);
 }
